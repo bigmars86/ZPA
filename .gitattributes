@@ -1,0 +1,10 @@
+# Normalize line endings: LF in the repository and in working copies.
+* text=auto eol=lf
+
+# cmd.exe mis-parses labels/GOTO in LF-only batch files.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.ico binary
+*.icns binary
+*.png binary
