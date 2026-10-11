@@ -54,4 +54,4 @@ CodeQL analysis, a dependency review and a test build of `ZPA.exe`.
 ## License
 
 By contributing, you agree that your contributions are licensed under the
-[GNU General Public License v3.0 or later](LICENSE).
+[GNU General Public License v3.0 only](LICENSE).
