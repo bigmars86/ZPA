@@ -1,0 +1,69 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+        **Never paste your `zpa.ini`, Zoom API credentials, SMTP passwords or participant names.**
+        Security issues: please use the private [security advisory form](https://github.com/bigmars86/ZPA/security/advisories/new) instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: ZPA version
+      description: Release tag (e.g. v2.0.0) or commit hash when running from source.
+      placeholder: v2.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run ZPA?
+      options:
+        - Windows exe (GitHub release)
+        - From source (uv / pip)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open File -> Settings
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Error messages or screenshots help a lot (redact names, meeting IDs and credentials).
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output / traceback
+      description: Optional. Run from source with `debug = true` in the `[Application]` section to get detailed output.
+      render: text

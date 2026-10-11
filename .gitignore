@@ -1,0 +1,94 @@
+# =============================================================================
+# Local configuration & secrets - NEVER commit these
+# zpa.ini holds Zoom API credentials, the SMTP password and proxy settings.
+# =============================================================================
+*.ini
+.env
+.env.*
+credentials.json
+secrets.json
+api_keys.json
+*.pem
+*.key
+*.pfx
+*.p12
+*.cer
+
+# =============================================================================
+# Poll exports (contain participant names = personal data)
+# =============================================================================
+zoom_poll_results_*
+exports/
+*.csv
+*.xlsx
+
+# =============================================================================
+# Build output (PyInstaller / hatch)
+# =============================================================================
+build/
+dist/
+specs/
+*.spec
+*.exe
+*.zip
+*.dmg
+*.app
+*.whl
+*.tar.gz
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.Python
+__pypackages__/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# =============================================================================
+# Tooling caches & reports
+# =============================================================================
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+.tox/
+.nox/
+.cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# =============================================================================
+# Temporary files & logs
+# =============================================================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.log
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# IDE / OS
+# =============================================================================
+.vscode/
+.idea/
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db

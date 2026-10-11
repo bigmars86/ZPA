@@ -1,0 +1,210 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_call:
+    secrets:
+      SIGNPATH_API_TOKEN:
+        required: false
+    inputs:
+      tag:
+        required: true
+        type: string
+      managed-release:
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build
+        required: true
+        type: string
+      managed-release:
+        description: Publish an existing release-please draft
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: Build Windows exe
+    runs-on: windows-latest
+    timeout-minutes: 90
+    outputs:
+      signed: ${{ steps.signing-status.outputs.signed }}
+    permissions:
+      contents: read
+      actions: read
+      id-token: write # sign the build provenance attestation (Sigstore)
+      attestations: write # store the attestation
+    env:
+      # The build script prints emoji; redirected output would otherwise use cp1252.
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: "3.13"
+          enable-cache: false # release builds never restore caches
+
+      - name: Check that the tag matches __version__
+        shell: bash
+        run: |
+          version=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/zpa/__init__.py)
+          if [ "v${version}" != "${RELEASE_TAG}" ]; then
+            echo "::error::Tag ${RELEASE_TAG} does not match __version__ '${version}' in src/zpa/__init__.py"
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: uv sync --locked --no-dev --group build
+
+      - name: Build ZPA.exe
+        run: uv run --no-sync python scripts/build_executable.py
+
+      - name: Upload unsigned executable for SignPath
+        if: vars.SIGNPATH_ENABLED == 'true'
+        id: unsigned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ZPA-unsigned
+          path: dist/ZPA.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath Foundation
+        if: vars.SIGNPATH_ENABLED == 'true'
+        uses: SignPath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      - name: Verify and use signed executable
+        if: vars.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          $signature = Get-AuthenticodeSignature signed/ZPA.exe
+          if ($signature.Status -ne 'Valid') {
+            throw "SignPath returned an invalid signature: $($signature.Status)"
+          }
+          Copy-Item signed/ZPA.exe dist/ZPA.exe -Force
+
+      - name: Record signing status
+        id: signing-status
+        shell: bash
+        env:
+          SIGNING_ENABLED: ${{ vars.SIGNPATH_ENABLED }}
+        run: |
+          if [ "$SIGNING_ENABLED" = "true" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create SHA-256 checksum
+        shell: bash
+        working-directory: dist
+        run: sha256sum ZPA.exe > ZPA.exe.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/ZPA.exe
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ZPA-windows
+          path: |
+            dist/ZPA.exe
+            dist/ZPA.exe.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release and upload its assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ZPA-windows
+          path: dist
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ env.RELEASE_TAG }}
+          SIGNED: ${{ needs.build.outputs.signed }}
+          MANAGED_RELEASE: ${{ inputs.managed-release }}
+        run: |
+          prerelease=""
+          case "${TAG#v}" in *[!0-9.]*) prerelease="--prerelease" ;; esac
+
+          notes=$(cat <<'EOF'
+          ## Download
+
+          - **`ZPA.exe`** - standalone Windows build, no Python installation required
+          - **`ZPA.exe.sha256`** - SHA-256 checksum
+
+          Code signing policy: https://github.com/bigmars86/ZPA#code-signing-policy
+          Verify that the file was built by this repository's release workflow:
+
+          ```
+          gh attestation verify ZPA.exe --repo __REPO__
+          ```
+          EOF
+          )
+          notes="${notes//__REPO__/$GITHUB_REPOSITORY}"
+          if [ "$SIGNED" = "true" ]; then
+            notes="$notes
+
+          Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/)."
+          else
+            notes="$notes
+
+          This release is unsigned. SignPath Foundation signing is not yet enabled; Windows may show an unknown-publisher warning."
+          fi
+
+          if [ "$MANAGED_RELEASE" = "true" ]; then
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' > release-notes.md
+            printf '\n%s\n' "$notes" >> release-notes.md
+            gh release upload "$TAG" dist/ZPA.exe dist/ZPA.exe.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md --draft=false
+          else
+            if [ "$TAG" = "v1.0.0" ]; then
+              notes="$(cat CHANGELOG.md)
+
+          $notes"
+            fi
+            gh release create "$TAG" dist/ZPA.exe dist/ZPA.exe.sha256 \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "ZPA $TAG" \
+              --verify-tag \
+              --generate-notes \
+              --notes "$notes" \
+              $prerelease
+          fi

@@ -1,0 +1,46 @@
+name: Versioning
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: versioning-main
+  cancel-in-progress: false
+
+jobs:
+  version:
+    if: vars.RELEASE_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  release:
+    needs: version
+    if: needs.version.outputs.release_created == 'true'
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
+    uses: $/.github/workflows/release.yml
+    with:
+      tag: ${{ needs.version.outputs.tag_name }}
+      managed-release: true
+    secrets:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}

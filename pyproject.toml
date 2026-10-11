@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zpa"
+dynamic = ["version"]
+description = "ZPA (Zoom Poll Analyzer) - A PyQt6 application for analyzing Zoom meeting poll results"
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Marcel Vilas" },
+]
+keywords = ["zoom", "poll", "analyzer", "meeting", "pyqt6"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+    "Topic :: Communications :: Conferencing",
+    "Environment :: X11 Applications :: Qt",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "PyQt6>=6.5.0",
+    "requests>=2.28.0",
+    "urllib3>=1.26.0",
+    "PyYAML>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
+build = [
+    "pyinstaller>=5.0",
+    "setuptools",  # Required for PyInstaller hooks
+]
+
+[project.urls]
+Homepage = "https://github.com/bigmars86/ZPA"
+Repository = "https://github.com/bigmars86/ZPA"
+Issues = "https://github.com/bigmars86/ZPA/issues"
+Releases = "https://github.com/bigmars86/ZPA/releases"
+
+[project.gui-scripts]
+zpa = "zpa.main:main"
+
+[tool.hatch.version]
+path = "src/zpa/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zpa"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "S",   # flake8-bandit (security)
+]
+ignore = [
+    "E501",  # line length is handled by the formatter
+    "S110",  # try/except/pass is used deliberately for best-effort cleanup
+    "UP006", # Retain the existing typing style without unrelated rewrites
+    "UP035", # Retain typing imports used by existing public annotations
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["S603", "S607"]
+"tests/*" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["zpa"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
