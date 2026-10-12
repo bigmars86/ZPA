@@ -23,7 +23,7 @@ Classes:
     ZoomAPI: Zoom API client for data retrieval
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Marcel Vilas"
 __email__ = ""
 __description__ = "A PyQt6 application for analyzing Zoom meeting poll results"
